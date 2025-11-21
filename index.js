@@ -2,7 +2,7 @@ const express = require('express')
 const app = express()
 const cors = require('cors')
 const port = process.env.PORT || 3000
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require("dotenv").config();
 
 
@@ -32,7 +32,15 @@ async function run() {
 
     app.post('/parcels',async(req,res)=>{
       const parcelData = req.body 
+      parcelData.createdAt = new Date()
       const result = await parcelsCollection.insertOne(parcelData)
+      res.send(result)
+    })
+
+    app.delete('/parcels/:id', async(req,res)=>{
+      const id = req.params.id
+      const query = {_id: new ObjectId(id)}
+      const result = await parcelsCollection.deleteOne(query)
       res.send(result)
     })
 
@@ -44,7 +52,7 @@ async function run() {
         query.senderEmail = email
       }
 
-      const cursor = parcelsCollection.find(query)
+      const cursor = parcelsCollection.find(query).sort({cost: 1})
       const result = await cursor.toArray()
       res.send(result)
     })
