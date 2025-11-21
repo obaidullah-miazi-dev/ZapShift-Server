@@ -68,6 +68,57 @@ async function run() {
     })
 
 
+    // stripe api 
+    app.post('/create-checkout-session',async(req,res)=>{
+      const paymentInfo = req.body 
+      const amount = parseInt(paymentInfo.cost) * 100
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+      {
+        
+        price_data:{
+          currency:'USD',
+          unit_amount:amount,
+          product_data:{
+            name: paymentInfo?.parcelName
+          }
+        },
+        quantity: 1,
+      },
+    ],
+      customer_email: paymentInfo?.senderEmail,
+      metadata:{
+        parcelId: paymentInfo?.parcelId
+      },
+      mode: 'payment',
+      success_url: `${process.env.YOUR_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.YOUR_DOMAIN}/dashboard/payment-canceled`
+    });
+
+    console.log(session);
+    res.send({url:session.url})
+  })
+
+
+  app.patch('/payment-success', async(req,res)=>{
+    const sessionId = req.query.session_id;
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    console.log(session)
+    if(session.payment_status === 'paid'){
+      const id = session.metadata.parcelId
+      const query = {_id: new ObjectId(id)}
+      const update = {
+        $set:{
+          paymentStatus: 'Paid'
+        }
+      }
+      const result = await parcelsCollection.updateOne(query,update)
+      res.send(result)
+    }
+    res.send({success: false})
+  })
+
+
 
 
 
