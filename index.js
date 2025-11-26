@@ -53,6 +53,7 @@ async function run() {
     const parcelsCollection = db.collection("parcels");
     const paymentCollection = db.collection("payment");
     const usersCollection = db.collection("users");
+    const ridersCollection = db.collection("riders");
 
     app.post('/users',async(req,res)=>{
       const user = req.body 
@@ -197,6 +198,16 @@ async function run() {
       }
       const cursor =  paymentCollection.find(query)
       const result =  await cursor.toArray()
+      res.send(result)
+    })
+
+
+    // riders related api 
+    app.post('/riders',async(req,res)=>{
+      const rider = req.body 
+      rider.status = "pending"
+      rider.createdAt = new Date()
+      const result = await ridersCollection.insertOne(rider)
       res.send(result)
     })
 
