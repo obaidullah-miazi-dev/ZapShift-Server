@@ -52,6 +52,21 @@ async function run() {
     const db = client.db("zap_shift_DB");
     const parcelsCollection = db.collection("parcels");
     const paymentCollection = db.collection("payment");
+    const usersCollection = db.collection("users");
+
+    app.post('/users',async(req,res)=>{
+      const user = req.body 
+      user.role = 'user'
+      user.createdAt = new Date()
+
+      const email = user.email 
+      const existUser = await usersCollection.findOne({email})
+      if(existUser){
+        return res.send({message:'user already exist'})
+      }
+      const result = await usersCollection.insertOne(user)
+      res.send(result)
+    })
 
     app.post("/parcels", async (req, res) => {
       const parcelData = req.body;
