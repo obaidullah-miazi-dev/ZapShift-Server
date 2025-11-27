@@ -259,10 +259,16 @@ async function run() {
     });
 
     app.get("/riders", async (req, res) => {
-      const status = req.query.status;
+      const {status,district,workStatus} = req.query
       const query = {};
       if (status) {
         query.status = status;
+      }
+      if(district){
+        query.district = district
+      }
+      if(workStatus){
+        query.workStatus = workStatus
       }
       const result = await ridersCollection.find(query).toArray();
       res.send(result);
