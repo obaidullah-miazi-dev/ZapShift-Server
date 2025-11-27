@@ -17,21 +17,6 @@ admin.initializeApp({
 app.use(express.json());
 app.use(cors());
 
-const firebaseToken = async (req, res, next) => {
-  const token = req.headers.authorization;
-  if (!token) {
-    return res.status(401).send({ message: "unauthorized access" });
-  }
-
-  try {
-    const tokenId = token.split(" ")[1];
-    const decode = await admin.auth().verifyIdToken(tokenId);
-    console.log("decoded in the token", decode);
-    req.decoded_email = decode.email;
-  } catch (err) {}
-  next();
-};
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.g0ilve4.mongodb.net/?appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -52,7 +37,36 @@ async function run() {
     const usersCollection = db.collection("users");
     const ridersCollection = db.collection("riders");
 
-    // users related apis 
+    // middleware for security
+    const firebaseToken = async (req, res, next) => {
+      const token = req.headers.authorization;
+      if (!token) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+
+      try {
+        const tokenId = token.split(" ")[1];
+        const decode = await admin.auth().verifyIdToken(tokenId);
+        console.log("decoded in the token", decode);
+        req.decoded_email = decode.email;
+      } catch (err) {}
+      next();
+    };
+
+    // admin middle ware for vverfiying admin
+    const adminVerify = async (req, res, next) => {
+      const email = req.decoded_email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+
+      next();
+    };
+
+    // users related apis
     app.post("/users", async (req, res) => {
       const user = req.body;
       user.role = "user";
@@ -67,25 +81,33 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/users',async(req,res)=>{
-      const result = await usersCollection.find().toArray()
-      res.send(result)
-    })
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
 
-    app.patch('/users/:id',async(req,res)=>{
-      const id = req.params.id 
-      const query = {_id: new ObjectId(id)}
-      const roleInfo = req.body 
+    app.patch("/users/:id", firebaseToken, adminVerify, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const roleInfo = req.body;
       const updatedData = {
-        $set:{
-          role: roleInfo.role
-        }
-      }
-      const result = await usersCollection.updateOne(query,updatedData)
-      res.send(result)
-    })
+        $set: {
+          role: roleInfo.role,
+        },
+      };
+      const result = await usersCollection.updateOne(query, updatedData);
+      res.send(result);
+    });
 
-    // parcels related apis 
+    app.get("/users/:email/role", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      console.log(user);
+      res.send({ role: user?.role || "user" });
+    });
+
+    // parcels related apis
     app.post("/parcels", async (req, res) => {
       const parcelData = req.body;
       parcelData.createdAt = new Date();
@@ -108,10 +130,14 @@ async function run() {
     });
 
     app.get("/parcels", async (req, res) => {
-      const { email } = req.query;
+      const { email, deliveryStatus } = req.query;
       const query = {};
       if (email) {
         query.senderEmail = email;
+      }
+
+      if (deliveryStatus) {
+        query.deliveryStatus = deliveryStatus;
       }
 
       const cursor = parcelsCollection.find(query).sort({ cost: 1 });
@@ -166,13 +192,16 @@ async function run() {
       console.log(session);
       if (session.payment_status === "paid") {
         const id = session.metadata.parcelId;
+        const deliveryStatus = "pending-pickup";
         const query = { _id: new ObjectId(id) };
         const trackingId =
           "TRK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
         const update = {
           $set: {
             paymentStatus: "paid",
+            deliveryStatus: deliveryStatus,
             trackingId: trackingId,
+            transactionId: session.payment_intent,
           },
         };
         const result = await parcelsCollection.updateOne(query, update);
@@ -191,7 +220,7 @@ async function run() {
 
         if (session.payment_status === "paid") {
           const paymentResult = await paymentCollection.insertOne(payment);
-          res.send({
+          return res.send({
             success: true,
             modifyParcel: result,
             trackingId: trackingId,
@@ -200,7 +229,7 @@ async function run() {
           });
         }
       }
-      res.send({ success: false });
+      return res.send({ success: false });
     });
 
     app.get("/payments", firebaseToken, async (req, res) => {
@@ -239,13 +268,14 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/riders/:id", async (req, res) => {
+    app.patch("/riders/:id", firebaseToken, adminVerify, async (req, res) => {
       const status = req.body.status;
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const updateInfo = {
         $set: {
           status: status,
+          workStatus: 'available'
         },
       };
       const result = await ridersCollection.updateOne(query, updateInfo);
