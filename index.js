@@ -52,6 +52,7 @@ async function run() {
     const usersCollection = db.collection("users");
     const ridersCollection = db.collection("riders");
 
+    // users related apis 
     app.post("/users", async (req, res) => {
       const user = req.body;
       user.role = "user";
@@ -66,6 +67,12 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/users',async(req,res)=>{
+      const result = await usersCollection.find().toArray()
+      res.send(result)
+    })
+
+    // parcels related apis 
     app.post("/parcels", async (req, res) => {
       const parcelData = req.body;
       parcelData.createdAt = new Date();
@@ -99,7 +106,7 @@ async function run() {
       res.send(result);
     });
 
-    // stripe api
+    // stripe payment related apis
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
       const amount = parseInt(paymentInfo.cost) * 100;
