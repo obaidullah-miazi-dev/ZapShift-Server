@@ -145,6 +145,33 @@ async function run() {
       res.send(result);
     });
 
+    app.patch('/parcels/:id',async(req,res)=>{
+      const {riderEmail,riderName,riderId} = req.body 
+      const id = req.params.id 
+      const query = {_id: new ObjectId(id)}
+
+      const updatedData = {
+        $set:{
+          deliveryStatus: 'rider_assigned',
+          riderId: riderId,
+          riderEmail: riderEmail,
+          riderName: riderName
+        }
+      }
+
+      const result = await parcelsCollection.updateOne(query,updatedData)
+
+      // update rider info 
+      const riderQuery = {_id: new ObjectId(riderId)}
+      const riderUpdatedData = {
+        $set:{
+          workStatus: 'in-delivery'
+        }
+      }
+      const riderResult = await ridersCollection.updateOne(riderQuery,riderUpdatedData)
+      res.send(riderResult)
+    })
+
     // stripe payment related apis
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
