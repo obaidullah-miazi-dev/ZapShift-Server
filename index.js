@@ -130,6 +130,10 @@ async function run() {
         query.riderEmail = riderEmail
       }
 
+      if(deliveryStatus !== 'parcel_deliverd'){
+        query.deliveryStatus = {$nin:['parcel_deliverd']}
+      }
+
       if(deliveryStatus){
         query.deliveryStatus = deliveryStatus
       }
@@ -186,6 +190,32 @@ async function run() {
       }
       const riderResult = await ridersCollection.updateOne(riderQuery,riderUpdatedData)
       res.send(riderResult)
+    })
+
+    app.patch('/parcels/:id/status',async(req,res)=>{
+      const {deliveryStatus,riderId} = req.body 
+      const id = req.params.id 
+      const query = {_id: new ObjectId(id)}
+      const updatedData = {
+        $set:{
+          deliveryStatus: deliveryStatus
+        }
+      }
+
+     if(deliveryStatus === 'parcel_deliverd'){
+       // update rider info 
+      const riderQuery = {_id: new ObjectId(riderId)}
+      const riderUpdatedData = {
+        $set:{
+          workStatus: 'available'
+        }
+      }
+      const riderResult = await ridersCollection.updateOne(riderQuery,riderUpdatedData)
+      res.send(riderResult)
+     }
+
+      const result = await parcelsCollection.updateOne(query,updatedData)
+      res.send(result)
     })
 
     // stripe payment related apis
