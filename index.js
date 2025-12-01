@@ -71,7 +71,7 @@ async function run() {
       const log = {
         trackingId,
         status,
-        details: status.split("-").join(" "),
+        details: status.split("_").join(" "),
         createdAt: new Date(),
       };
       const result = await trackingsCollection.insertOne(log);
@@ -118,11 +118,20 @@ async function run() {
       res.send({ role: user?.role || "user" });
     });
 
+    
+
     // parcels related apis
     app.post("/parcels", async (req, res) => {
       const parcelData = req.body;
+
+      // genrate trackingId
+    const trackingId =
+      "TRK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+
       parcelData.createdAt = new Date();
+      parcelData.trackingId = trackingId
       const result = await parcelsCollection.insertOne(parcelData);
+      logTracking(trackingId,'created parcel')
       res.send(result);
     });
 
@@ -291,6 +300,7 @@ async function run() {
         metadata: {
           parcelId: paymentInfo.parcelId,
           parcelName: paymentInfo.parcelName,
+          trackingId: paymentInfo.trackingId,
         },
         customer_email: paymentInfo.senderEmail,
         success_url: `${process.env.YOUR_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
@@ -319,12 +329,11 @@ async function run() {
         });
       }
 
-      const trackingId =
-        "TRK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+      const trackingId = session.metadata.trackingId;
 
       if (session.payment_status === "paid") {
         const id = session.metadata.parcelId;
-        const deliveryStatus = "pending-pickup";
+        const deliveryStatus = "pending_pickup";
         const query = { _id: new ObjectId(id) };
 
         const update = {
@@ -439,13 +448,13 @@ async function run() {
       res.send(result);
     });
 
-    // track related api 
-    app.get('/track-parcel/:trackingId/logs',async(req,res)=>{
-      const trackingId = req.params.trackingId 
-      const query = {trackingId}
-      const result = await trackingsCollection.find(query).toArray()
-      res.send(result)
-    })
+    // track related api
+    app.get("/track-parcel/:trackingId/logs", async (req, res) => {
+      const trackingId = req.params.trackingId;
+      const query = { trackingId };
+      const result = await trackingsCollection.find(query).toArray();
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
