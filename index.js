@@ -118,20 +118,18 @@ async function run() {
       res.send({ role: user?.role || "user" });
     });
 
-    
-
     // parcels related apis
     app.post("/parcels", async (req, res) => {
       const parcelData = req.body;
 
       // genrate trackingId
-    const trackingId =
-      "TRK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+      const trackingId =
+        "TRK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
 
       parcelData.createdAt = new Date();
-      parcelData.trackingId = trackingId
+      parcelData.trackingId = trackingId;
       const result = await parcelsCollection.insertOne(parcelData);
-      logTracking(trackingId,'created parcel')
+      logTracking(trackingId, "created parcel");
       res.send(result);
     });
 
@@ -249,36 +247,6 @@ async function run() {
       res.send(result);
     });
 
-    // stripe payment related apis
-    // app.post("/create-checkout-session", async (req, res) => {
-    //   const paymentInfo = req.body;
-    //   const amount = parseInt(paymentInfo.cost) * 100;
-    //   const session = await stripe.checkout.sessions.create({
-    //     line_items: [
-    //       {
-    //         price_data: {
-    //           currency: "USD",
-    //           unit_amount: amount,
-    //           product_data: {
-    //             name: paymentInfo?.parcelName,
-    //           },
-    //         },
-    //         quantity: 1,
-    //       },
-    //     ],
-    //     customer_email: paymentInfo?.senderEmail,
-    //     metadata: {
-    //       parcelId: paymentInfo?.parcelId,
-    //       parcelName: paymentInfo?.parcelName,
-    //     },
-    //     mode: "payment",
-    //     success_url: `${process.env.YOUR_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-    //     cancel_url: `${process.env.YOUR_DOMAIN}/dashboard/payment-canceled`,
-    //   });
-
-    //   console.log(session);
-    //   res.send({ url: session.url });
-    // });
 
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
@@ -358,22 +326,20 @@ async function run() {
           trackingId: trackingId,
         };
 
-        if (session.payment_status === "paid") {
-          const paymentResult = await paymentCollection.insertOne(payment);
+        const paymentResult = await paymentCollection.insertOne(payment);
 
-          // log tracking here
-          logTracking(trackingId, deliveryStatus);
+        // log tracking here
+        logTracking(trackingId, deliveryStatus);
 
-          return res.send({
-            success: true,
-            modifyParcel: result,
-            trackingId: trackingId,
-            transactionId: session.payment_intent,
-            paymentInfo: paymentResult,
-          });
-        }
+        return res.send({
+          success: true,
+          modifyParcel: result,
+          trackingId: trackingId,
+          transactionId: session.payment_intent,
+          paymentInfo: paymentResult,
+        });
       }
-      res.send({ success: false });
+      return res.send({ success: false });
     });
 
     app.get("/payments", firebaseToken, async (req, res) => {
