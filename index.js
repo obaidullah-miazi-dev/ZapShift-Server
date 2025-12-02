@@ -247,7 +247,28 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/parcels/deliveryStatus/stats", async (req, res) => {
+      const pipeline = [
+        {
+          $group: {
+            _id: '$deliveryStatus',
+            count: {$sum:1}
+          },
+        },
+        {
+          $project:{
+            status: '$_id',
+            count: 1,
+            // _id: 0
+          }
+        }
+      ];
 
+      const result = await parcelsCollection.aggregate(pipeline).toArray()
+      res.send(result)
+    });
+
+    // payment related apis
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
       const amount = parseInt(paymentInfo.cost) * 100;
